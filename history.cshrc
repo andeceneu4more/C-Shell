@@ -43,3 +43,13 @@
 43 g
 44 kill SIGCONT 5419
 45 ext
+46 ./inifnit
+47 EXIT
+48 exi
+49 which ls
+50 man fg
+51 fg %2
+52 kill %1
+53 exiy
+54 man sleep
+55 git add .

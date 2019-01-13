@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <errno.h>
 #include "searchHistory.h"
 
 int exitSh (char** args);
@@ -18,7 +19,7 @@ int helpSh (char** args);
 
 pid_t *suspendedChildren = NULL;
 int suspendedChildrenSize = 0;
-pid_t currenthild = 0;
+pid_t currentChild = 0;
 
 void sigHandler (int signo) 
 {
@@ -27,6 +28,9 @@ void sigHandler (int signo)
   		case SIGINT:  /* Incoming SIGINT */
 			if (currentChild) 
 			{
+				if (suspendedChildrenSize > 0)
+					if (suspendedChildren[suspendedChildrenSize - 1] == currentChild)
+						suspendedChildrenSize--;
 				printf ("\n");
 				kill(currentChild, SIGINT);
 				currentChild = 0;
@@ -45,7 +49,9 @@ void sigHandler (int signo)
 				currentChild = 0;
 			} 
     		break;
-  		default: break;
+  		
+		default: 
+		break;
   	}
 	return;
 }
@@ -59,8 +65,10 @@ void resumeProcess ()
 	}
 	else
 	{
-		printf ("%d\n", suspendedChildren[suspendedChildrenSize - 1]);
-		kill (suspendedChildren[suspendedChildrenSize - 1], SIGCONT);
+		if (kill (suspendedChildren[suspendedChildrenSize - 1], SIGCONT) < 0)
+		{
+			fprintf (stderr, "can not continue job %d\n", suspendedChildren[suspendedChildrenSize - 1]);
+		}
 	}
 	exit (EXIT_SUCCESS);
 }
@@ -86,6 +94,13 @@ int builtinNr()
 
 int exitSh(char** args)
 {
+	/*
+	if (suspendedChildrenSize > 0)
+	{
+		printf("There are suspended processes\n");
+	}
+	else
+	*/
 	exit (EXIT_SUCCESS);
 }
 
@@ -182,16 +197,17 @@ int launchProcess(char** args)
 			// history command
 			execHistory(args);
 		}
-		else if (strcmp(args[0], "fg") == 0)
-			resumeProcess ();
-		else
-		{
-			if(execvp (args[0], args) == -1)
+		else 
+			if (strcmp(args[0], "fg") == 0)
+				resumeProcess();
+			else
 			{
-				fprintf (stderr, "launchProcess execvp\n");
-				exit(EXIT_FAILURE);
+				if(execvp (args[0], args) == -1)
+				{
+					fprintf (stderr, "launchProcess execvp\n");
+					exit(EXIT_FAILURE);
+				}
 			}
-		}
 	}
 	else if (pid < 0)
 	{
